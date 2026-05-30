@@ -36,7 +36,7 @@ TPL = """<!DOCTYPE html>
 <main>
   <span class="pill">{{APP_NAME}}</span>
   <h1>Privacy Policy</h1>
-  <p class="meta">Last updated: 19 May 2026 &middot; Developer: Albert Kamalov &middot; Contact: <a href="mailto:bertbertov@gmail.com">bertbertov@gmail.com</a></p>
+  <p class="meta">Last updated: {{UPDATED}} &middot; Developer: Albert Kamalov &middot; Contact: <a href="mailto:bertbertov@gmail.com">bertbertov@gmail.com</a></p>
   <h2>Summary</h2>
   <p>{{APP_NAME}} collects no personal data. Everything stays on your device. No accounts, no cloud sync, no ads, no analytics, no telemetry.</p>
   <h2>What data {{APP_NAME}} handles</h2>
@@ -51,12 +51,12 @@ TPL = """<!DOCTYPE html>
     <li>Crash reports, usage analytics, behavioral telemetry &mdash; none of it.</li>
   </ul>
   <h2>Third parties</h2>
-  <p>{{APP_NAME}} contains no third-party SDKs that transmit data. There are no analytics providers, no ad networks, no crash reporters, no remote configuration services.</p>
+  {{THIRD_PARTIES}}
   <h2>Children</h2>
   <p>{{APP_NAME}} is not directed at children under 13. Since the app collects no personal data, no special protections under COPPA / GDPR-K are required, but you should still use your own judgment about whether this app is appropriate for the child in your care.</p>
   <h2>Your data, your control</h2>
   <p>All data {{APP_NAME}} stores lives in a local database on your device. To delete everything: uninstall the app. Android removes the local database when the app is uninstalled.</p>
-  <p>If you have Google Drive automatic backup enabled in Android Settings, an encrypted copy of the app&rsquo;s local data may be included in your system-level Google backup. That backup is controlled by Google&rsquo;s privacy policy, not by {{APP_NAME}}, and is restored only if you reinstall on a new device while signed in to the same Google account.</p>
+  {{BACKUP_BLOCK}}
   <h2>Changes to this policy</h2>
   <p>If this policy changes, the &ldquo;Last updated&rdquo; date above will change. Material changes (e.g. if a future version adds optional cloud sync) will be disclosed in the app&rsquo;s release notes on Google Play before the changed version ships.</p>
   <hr />
@@ -67,6 +67,33 @@ TPL = """<!DOCTYPE html>
 """
 
 APPS = {
+    'clusterattacktracker': {
+        'name': 'Cluster Attack Tracker',
+        'accent': '#16C8B6',
+        'updated': '30 May 2026',
+        'data': (
+            '<ul>'
+            '<li>Everything you log &mdash; attacks, severity, side, duration, autonomic signs, oxygen/triptan abort methods and their success, triggers, and free-text notes &mdash; is stored only in a local database on your device.</li>'
+            '<li>When you export a <b>PDF report</b> or <b>CSV file</b> (or restore from a CSV backup), the file is created on your device and handed to Android&rsquo;s standard share sheet &mdash; it goes only where <i>you</i> choose to send it (for example, emailing your neurologist). The app never transmits it.</li>'
+            '<li>Nothing leaves your device automatically. There is no account, no sign-in, no cloud sync, no upload, no ads, and no analytics or telemetry.</li>'
+            '<li><b>Not a medical device.</b> Cluster Attack Tracker is a symptom-tracking diary; it does not diagnose or give medical advice. Always consult a qualified clinician.</li>'
+            '</ul>'
+        ),
+        'perms': (
+            '<ul>'
+            '<li><b>POST_NOTIFICATIONS</b> &mdash; used only if you turn on the optional daily check-in reminder, so the app can show a local notification. The reminder is scheduled entirely on-device; nothing is transmitted. Revoke it any time in Android Settings.</li>'
+            '<li><b>RECEIVE_BOOT_COMPLETED</b> &mdash; lets the app re-schedule your reminder after the phone restarts. No data is read or sent.</li>'
+            '</ul>'
+            '<p>The app requests no internet, location, contacts, or storage permissions for its own data.</p>'
+        ),
+        'third_parties': (
+            '<p>Cluster Attack Tracker contains no analytics providers, ad networks, crash reporters, or remote-configuration services. The only Google service it includes is <b>Google Play Billing</b>, used solely to process the optional one-time Pro unlock; it shares purchase information with Google (never with us) under Google&rsquo;s own privacy policy. None of your health data is ever sent to it.</p>'
+        ),
+        'backup': (
+            '<p>This app sets <b>allowBackup=&ldquo;false&rdquo;</b>, so your logged attacks are <b>never</b> included in Android or Google system backups &mdash; your health data does not leave the device that way. Because there is no automatic cloud copy, use the built-in <b>Export data (CSV)</b> to keep your own backup before switching phones, then <b>Restore from backup</b> on the new device.</p>'
+            '<p><b>Payments.</b> If you unlock Cluster Attack Tracker Pro, the purchase is processed entirely by Google Play Billing under Google&rsquo;s privacy policy. We never receive or store your payment details.</p>'
+        ),
+    },
     'nightwake': {
         'name': 'Nightwake',
         'accent': '#FF6B35',
@@ -159,14 +186,31 @@ APPS = {
 # Their privacy pages were removed; old code archived at App/_killed_2026_05_19/.
 
 
+# Defaults reproduce the original shared wording for apps that don't override them, so existing
+# pages regenerate byte-identical. {{APP_NAME}} inside them is resolved last (see replace order).
+DEFAULT_THIRD_PARTIES = (
+    '<p>{{APP_NAME}} contains no third-party SDKs that transmit data. There are no analytics '
+    'providers, no ad networks, no crash reporters, no remote configuration services.</p>'
+)
+DEFAULT_BACKUP = (
+    '<p>If you have Google Drive automatic backup enabled in Android Settings, an encrypted copy '
+    'of the app&rsquo;s local data may be included in your system-level Google backup. That backup '
+    'is controlled by Google&rsquo;s privacy policy, not by {{APP_NAME}}, and is restored only if '
+    'you reinstall on a new device while signed in to the same Google account.</p>'
+)
+
+
 def main():
     out_dir = ROOT / 'privacy'
     for slug, app in APPS.items():
         html = (TPL
-                .replace('{{APP_NAME}}', app['name'])
                 .replace('{{ACCENT}}', app['accent'])
+                .replace('{{UPDATED}}', app.get('updated', '19 May 2026'))
                 .replace('{{DATA_BLOCK}}', app['data'])
-                .replace('{{PERMS_BLOCK}}', app['perms']))
+                .replace('{{PERMS_BLOCK}}', app['perms'])
+                .replace('{{THIRD_PARTIES}}', app.get('third_parties', DEFAULT_THIRD_PARTIES))
+                .replace('{{BACKUP_BLOCK}}', app.get('backup', DEFAULT_BACKUP))
+                .replace('{{APP_NAME}}', app['name']))
         p = out_dir / f'{slug}.html'
         p.write_text(html, encoding='utf-8')
         print(f'wrote {p.name}  {p.stat().st_size}b')
